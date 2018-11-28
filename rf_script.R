@@ -11,18 +11,19 @@ raw_df <- read_csv("sqf_08_16.csv")
 ### Data Clean Up ###
 sqf <- raw_df %>%
   filter( suspected.crime == "cpw") %>% 
-  select(id, year, found.weapon, precinct,
+  select(id, year, found.weapon, 
+         precinct, 
+         location.housing,
+         starts_with("stopped.bc."),
+         starts_with("additional."),
          suspect.age, suspect.build, suspect.sex, suspect.height, suspect.weight,
-         stopped.bc.desc, stopped.bc.violent, stopped.bc.other, stopped.bc.object, 
-         stopped.bc.casing, stopped.bc.lookout, stopped.bc.drugs, stopped.bc.clothing, 
-         stopped.bc.furtive, stopped.bc.bulge, 
-         inside, observation.period, officer.uniform,
-         additional.report, additional.investigation, additional.proximity, additional.evasive,
-         additional.associating, additional.direction, additional.highcrime, additional.time, 
-         additional.sights, additional.other, radio.run, day, month, time.period)
+         inside, radio.run, officer.uniform,
+         observation.period,
+         day, month, time.period)
 
 # Convert variable types as necessary
 sqf <- sqf %>% mutate(id = as.factor(id),
+                      location.housing = as.factor(location.housing),
                       suspect.build = as.factor(suspect.build),
                       suspect.sex = as.factor(suspect.sex),
                       found.weapon = as.factor(found.weapon),
