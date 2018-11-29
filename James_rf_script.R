@@ -1,5 +1,6 @@
 require(tidyverse)
 require(randomForest)
+require(ROCR)
 
 #### 1
 sqf_data <- read_csv("sqf_08_16.csv")
