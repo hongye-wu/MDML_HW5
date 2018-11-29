@@ -41,7 +41,7 @@ sqf_binary <- sqf %>%
   select(-precinct)
 
 ## A
-sqf_2013_2014 <- sqf %>%
+sqf_2013_2014 <- sqf_binary %>%
   filter(year %in% c(2013,2014))
 
 set.seed(2013)
@@ -61,6 +61,24 @@ test_later <- sqf %>%
 ## B
 #random forest classification model
 memory.limit(100000)
-rf_model <- randomForest(found.weapon ~., data = train_half, ntree = 200, na.action = na.omit, proximity = TRUE)
+rf_model <- randomForest(found.weapon ~., data = train_half, ntree = 200, na.action = na.omit)
 
+
+## C
+#predicted probabilities on test data
+test_half$predicted.probability <- predict(rf_model, newdata = test_half, type = "response")
+
+#predicted probabilities on test_later data
+test_later$predicted.probability <- predict(rf_model, newdata = test_later, type = "response")
+
+#AUC
+test_half.pred <- prediction(test_half$predicted.probability, test_half$found.weapon)
+test_half.perf <- performance(test_half.pred, "auc")
+auc <- 100*test_half.perf@y.values[[1]]
+paste0("the auc score for test_half is ", auc)
+
+test_later.pred <- prediction(test_later$predicted.probability, test_later$found.weapon)
+test_later.perf <- performance(test_later.pred, "auc")
+auc <- 100*test_later.perf@y.values[[1]]
+paste0("the auc score for test_later is ", auc)
 
