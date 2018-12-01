@@ -52,3 +52,28 @@ all_data_clean <- all_data_clean %>%
                                   "Administrative Miscellaneous / Re-inspection",
                                   "Trans Fat / Re-inspection",
                                   "Inter-Agency Task Force / Initial Inspection")))
+
+#Create a new column for the max scores on rows with same id and inspection_date
+all_data_clean <- all_data_clean %>%
+  group_by(id, inspection_date) %>%
+  mutate(score_max = max(score))
+
+
+## B
+restaurant_data <- all_data_clean %>%
+  filter(inspection_year %in% c(2015,2016,2017),
+         inspection_type == "Cycle Inspection / Initial Inspection") %>%
+  arrange(id) %>%
+  distinct(id,inspection_date,inspection_year,.keep_all = T) %>%
+  mutate(outcome = ifelse(score_max > 28,1,0)) %>%
+  select(id,borough,cuisine,outcome,inspection_date,inspection_year)
+
+## C
+restaurant_data <- restaurant_data %>%
+  mutate(inspection_month = month(inspection_date),
+         inspection_weekday = weekdays(inspection_date))
+
+temp_tibble <- merge(restaurant_data,
+                     all_data_clean %>% select(id,score_max,action,inspection_date),
+                     all.x = T,
+                     allow.cartesian = T)
