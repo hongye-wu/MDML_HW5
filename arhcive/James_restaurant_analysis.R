@@ -5,12 +5,13 @@ require(ROCR)
 require(randomForest)
 require(doParallel)
 require(foreach)
+library(snakecase)
 
 ## A
-all_data <- read_csv("DOHMH_New_York_City_Restaurant_Inspection_Results.csv")
+raw_df <- read_csv("DOHMH_New_York_City_Restaurant_Inspection_Results.csv",na = c("","N/A"))
 
 #Drop columns, make inspection data a date object, rename columns
-all_data_clean <- all_data %>%
+all_data_clean <- raw_df %>%
   select(-BUILDING,-STREET,-PHONE,-DBA,-ZIPCODE,-`RECORD DATE`,-`VIOLATION DESCRIPTION`, -`GRADE DATE`) %>%
   mutate(inspection_date = lubridate::mdy(`INSPECTION DATE`),
          inspection_year = lubridate::year(inspection_date)) %>%
@@ -35,7 +36,7 @@ all_data_clean <- all_data_clean %>%
     action == "Establishment re-closed by DOHMH" ~ "Reclosed",
     is.na(action) ~ action
   )
-  )
+)
 
 #Remove rows with 'Missing' borough information, action == NA, inspection_year == 1900, score < 0 | NA,
 #and six inspection types.
@@ -43,6 +44,7 @@ all_data_clean <- all_data_clean %>%
 all_data_clean <- all_data_clean %>%
   filter(borough != "Missing",
          !is.na(action),
+         !is.na(inspection_date), 
          inspection_year != 1900,
          score >= 0,
          !is.na(score),
@@ -60,7 +62,7 @@ all_data <- all_data_clean %>%
 
 
 ## B
-restaurant_data <- all_data_clean %>%
+restaurant_data <- all_data %>%
   filter(inspection_year %in% c(2015,2016,2017),
          inspection_type == "Cycle Inspection / Initial Inspection") %>%
   arrange(id) %>%
@@ -73,12 +75,8 @@ restaurant_data <- restaurant_data %>%
   mutate(inspection_month = month(inspection_date),
          inspection_weekday = weekdays(inspection_date))
 
-temp_tibble <- merge(x=restaurant_data,
-                     y= all_data_clean %>% select(id,score_max,action,inspection_date),
-                     all.x = T,
-                     allow.cartesian = T)
-
 temp <- all_data %>%
+  distinct(id,inspection_date,inspection_year,.keep_all = T) %>%
   arrange(id,inspection_date) %>%
   group_by(id) %>%
   mutate(low_inspect = ifelse(score<14,1,0),
@@ -92,7 +90,54 @@ temp <- all_data %>%
          ) %>%
   select(-low_inspect,-medium_inspect,-high_inspect,-previous_closings)
 
-restaurant_data1 <-  restaurant_data %>%
+tb_features <-  restaurant_data %>%
   left_join(temp)
 
+## restrict to top 50 most common cuisines
+tb_top <- tb_features %>%
+  group_by(cuisine) %>%
+  count(cuisine, sort=T) %>%
+  arrange(desc(n)) %>% head(50) %>%
+  select(cuisine)
 
+
+#Convert to factors
+tb_final <- tb_features %>%
+  filter(cuisine %in% tb_top$cuisine) %>% 
+  ungroup %>%
+  mutate_at(vars(cuisine,inspection_weekday,inspection_month,borough,outcome),funs(as.factor))
+
+
+##### D
+## create a training set in 2015 and 2016 and a testing set in 2017
+train <- tb_final %>% filter(inspection_year %in% c(2015, 2016))
+test <- tb_final %>% filter(inspection_year==2017)
+
+## randomly shuffle the data
+set.seed(1000)
+train <- train[sample(nrow(train)),]
+test <- test[sample(nrow(test)),]
+
+## fit a standard logistic regression model
+lm_model <- glm(outcome ~ cuisine + borough + inspection_month + inspection_weekday, data=train, family="binomial")
+
+## compute AUC of this model on the test dataset
+test$predicted.probability.lm <- predict(lm_model, newdata=test, type="response")
+test.pred.lm <- prediction(test$predicted.probability.lm, test$outcome)
+test.perf.lm <- performance(test.pred.lm, "auc")
+auc <- 100*test.perf.lm@y.values[[1]]
+cat('the auc score is ', 100*test.perf.lm@y.values[[1]], "\n") 
+
+##### E
+## fit a random forest model on train 
+rf_model <- randomForest(outcome ~ cuisine + borough + inspection_month + inspection_weekday +
+                           num_previous_low_inspections +num_previous_med_inspections +
+                           num_previous_high_inspections + num_previous_previous_closings, 
+                         data=train, ntree=1000, na.action=na.omit)
+
+## compute AUC of this model on the test dataset  
+test$predicted.probability.rf <- predict(rf_model, newdata=test, type="response")
+test.pred.rf <- prediction(test$predicted.probability.rf, test$outcome)
+test.perf.rf <- performance(test.pred.rf, "auc")
+auc <- 100*test.perf.rf@y.values[[1]]
+cat('the auc score is ', 100*test.perf.rf@y.values[[1]], "\n") 
