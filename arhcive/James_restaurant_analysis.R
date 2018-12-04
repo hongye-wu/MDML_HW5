@@ -54,9 +54,9 @@ all_data_clean <- all_data_clean %>%
                                   "Inter-Agency Task Force / Initial Inspection")))
 
 #Create a new column for the max scores on rows with same id and inspection_date
-all_data_clean <- all_data_clean %>%
+all_data <- all_data_clean %>%
   group_by(id, inspection_date) %>%
-  mutate(score_max = max(score))
+  mutate(score = max(score))
 
 
 ## B
@@ -65,7 +65,7 @@ restaurant_data <- all_data_clean %>%
          inspection_type == "Cycle Inspection / Initial Inspection") %>%
   arrange(id) %>%
   distinct(id,inspection_date,inspection_year,.keep_all = T) %>%
-  mutate(outcome = ifelse(score_max > 28,1,0)) %>%
+  mutate(outcome = ifelse(score > 28,1,0)) %>%
   select(id,borough,cuisine,outcome,inspection_date,inspection_year)
 
 ## C
@@ -73,7 +73,26 @@ restaurant_data <- restaurant_data %>%
   mutate(inspection_month = month(inspection_date),
          inspection_weekday = weekdays(inspection_date))
 
-temp_tibble <- merge(restaurant_data,
-                     all_data_clean %>% select(id,score_max,action,inspection_date),
+temp_tibble <- merge(x=restaurant_data,
+                     y= all_data_clean %>% select(id,score_max,action,inspection_date),
                      all.x = T,
                      allow.cartesian = T)
+
+temp <- all_data %>%
+  arrange(id,inspection_date) %>%
+  group_by(id) %>%
+  mutate(low_inspect = ifelse(score<14,1,0),
+         medium_inspect =ifelse(score>=14 & score<28,1,0),
+         high_inspect = ifelse(score>=28,1,0),
+         previous_closings = ifelse(action %in% c("closed","re-closed"),1,0),
+         num_previous_low_inspections = c(0, head(cumsum(low_inspect), -1)),
+         num_previous_med_inspections = c(0, head(cumsum(medium_inspect), -1)),
+         num_previous_high_inspections = c(0, head(cumsum(high_inspect), -1)),
+         num_previous_previous_closings = c(0, head(cumsum(previous_closings), -1))
+         ) %>%
+  select(-low_inspect,-medium_inspect,-high_inspect,-previous_closings)
+
+restaurant_data1 <-  restaurant_data %>%
+  left_join(temp)
+
+
