@@ -82,7 +82,7 @@ temp <- all_data %>%
   mutate(low_inspect = ifelse(score<14,1,0),
          medium_inspect =ifelse(score>=14 & score<28,1,0),
          high_inspect = ifelse(score>=28,1,0),
-         previous_closings = ifelse(action %in% c("closed","re-closed"),1,0),
+         previous_closings = ifelse(action %in% c("Closed","Reclosed"),1,0),
          num_previous_low_inspections = c(0, head(cumsum(low_inspect), -1)),
          num_previous_med_inspections = c(0, head(cumsum(medium_inspect), -1)),
          num_previous_high_inspections = c(0, head(cumsum(high_inspect), -1)),
@@ -133,11 +133,14 @@ cat('the auc score is ', 100*test.perf.lm@y.values[[1]], "\n")
 rf_model <- randomForest(outcome ~ cuisine + borough + inspection_month + inspection_weekday +
                            num_previous_low_inspections +num_previous_med_inspections +
                            num_previous_high_inspections + num_previous_previous_closings, 
-                         data=train, ntree=1000, na.action=na.omit)
+                         data=train, ntree=1000)
 
 ## compute AUC of this model on the test dataset  
-test$predicted.probability.rf <- predict(rf_model, newdata=test, type="response")
+test$predicted.probability.rf <- predict(rf_model, newdata=test, type="prob")[,2]
 test.pred.rf <- prediction(test$predicted.probability.rf, test$outcome)
 test.perf.rf <- performance(test.pred.rf, "auc")
 auc <- 100*test.perf.rf@y.values[[1]]
 cat('the auc score is ', 100*test.perf.rf@y.values[[1]], "\n") 
+
+##### F
+
