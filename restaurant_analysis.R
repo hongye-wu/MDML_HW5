@@ -4,6 +4,7 @@ library(ROCR)
 library(randomForest)
 library(doParallel)
 library(foreach)
+library(snakecase)
 
 ##### A
 ### a
@@ -84,49 +85,78 @@ library(foreach)
   tb_final <- tb_features %>%
     filter(cuisine %in% tb_top$cuisine)
   
+  ## transform cuisine variable into many binary variables for fitting purposes
+  tb_cuisine <- tb_final %>% 
+    select(id, cuisine) %>% mutate(yesno=1) %>% distinct %>%
+    spread(cuisine, yesno, fill=0)
+  
+  tb_all <- tb_final %>% 
+    left_join(tb_cuisine, by = c("id", "inspection_date.x")) %>% 
+    ungroup() %>% 
+    select(-c(id, cuisine, inspection_date.x,
+              score, action, inspection_date.y))
+  
+  ## convert variable types and clean up names for fitting purposes
+  tb_all <- tb_all %>% 
+    mutate(outcome = as.factor(outcome)) %>% 
+    mutate_if(is.character, as.factor) %>% 
+    rename_all(to_snake_case)
+  
 ##### D
   ## create a training set in 2015 and 2016 and a testing set in 2017
-  train <- tb_final %>% filter(inspection_year %in% c(2015, 2016))
-  test <- tb_final %>% filter(inspection_year==2017)
+  train <- tb_all %>% filter(inspection_year %in% c(2015, 2016))
+  test <- tb_all %>% filter(inspection_year==2017)
   
   ## randomly shuffle the data
   train <- train[sample(nrow(train)),]
   test <- test[sample(nrow(test)),]
   
   ## fit a standard logistic regression model
-  lm_model <- glm(outcome ~ cuisine + borough + inspection_month + inspection_weekday + 
-                  num_previous_low_inspections + num_previous_med_inspections + 
-                  num_previous_high_inspections + num_previous_previous_closings,
-                  data=train, family="binomial")
+  lm_model <- glm(outcome ~., data=train, family="binomial")
   
   ## compute AUC of this model on the test dataset
-  test$predicted.probability <- predict(lm_model, newdata=test, type="response")
-  test.pred <- prediction(test$predicted.probability, test$outcome)
-  test.perf <- performance(test.pred, "auc")
-  auc <- 100*test.perf@y.values[[1]]
-  cat('the auc score is ', 100*test.perf@y.values[[1]], "\n") #63.67091 
+  test$predicted.probability.lm <- predict(lm_model, newdata=test, type="response")
+  test.pred.lm <- prediction(test$predicted.probability.lm, test$outcome)
+  test.perf.lm <- performance(test.pred.lm, "auc")
+  auc <- 100*test.perf.lm@y.values[[1]]
+  cat('the auc score is ', 100*test.perf.lm@y.values[[1]], "\n") 
   
 ##### E
   ## fit a random forest model on train 
-  rf_model <- randomForest(outcome ~ cuisine + borough + inspection_month + inspection_weekday + 
-                             num_previous_low_inspections + num_previous_med_inspections + 
-                             num_previous_high_inspections + num_previous_previous_closings,
-                           data=train, ntree=1000, na.action=na.omit, proximity=TRUE)
-  ########need to fix it (got an error)
+  rf_model <- randomForest(outcome ~., data=train, ntree=1000, na.action=na.omit)
   
   ## compute AUC of this model on the test dataset  
-  test$predicted.probability <- predict(rf_model, newdata=test, type="response")
-  test.pred <- prediction(test$predicted.probability, test$outcome)
-  test.perf <- performance(test.pred, "auc")
-  auc <- 100*test.perf@y.values[[1]]
-  cat('the auc score is ', 100*test.perf@y.values[[1]], "\n") 
+  test$predicted.probability.rf <- predict(rf_model, newdata=test, type="response")
+  test.pred.rf <- prediction(test$predicted.probability.rf, test$outcome)
+  test.perf.rf <- performance(test.pred.rf, "auc")
+  auc <- 100*test.perf.rf@y.values[[1]]
+  cat('the auc score is ', 100*test.perf.rf@y.values[[1]], "\n") 
   
   
 ##### F
-  ## create a plot with the number of restaurants and the corresponding model precision
+  ## generate precision plot
+  lm.plot.data <- test %>% 
+    group_by(predicted.probability.lm) %>% 
+    mutate(restaurants = n(),
+              percent.outcome = cumsum(as.numeric(outcome))/sum(as.numeric(outcome))) %>% 
+    arrange(desc(predicted.probability.lm)) %>% 
+    ungroup()
+    select(restaurants, percent.outcome)
+  
+  rf.plot.data <- test %>% arrange(desc(predicted.probability.rf)) %>% 
+    mutate(numsres = row_number(), percent.outcome = cumsum(outcome)/sum(outcome),
+           restaurants = numsres/n()) %>% select(restaurants, percent.outcome)
   
   # create and save plot
-
+  theme_set(theme_bw())
+  p <- ggplot() +
+          geom_line(data = lm.plot.data, aes(x=restaurants, y=percent.outcome))+ 
+          geom_line(data = rf.plot.data, aes(x=restaurants, y=percent.outcome))
+          scale_x_continuous('Number of restaurants', limits=c(100, 2000), breaks=c(100, 200, 500, 1000, 1500 ,2000), 
+                         labels=c("100", "200", "500", "1000", "1500", "2000")) +
+          scale_y_continuous("Percent of outcome predicted", limits=c(0, 1), labels=scales::percent)
+  
+  ggsave(plot=p, file='performance_plot.pdf', height=5, width=5)
   
   
   
