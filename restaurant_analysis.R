@@ -134,18 +134,22 @@ library(snakecase)
   
   
 ##### F
-  ## generate precision plot
-  lm.plot.data <- test %>% 
-    group_by(predicted.probability.lm) %>% 
-    mutate(restaurants = n(),
-              percent.outcome = cumsum(as.numeric(outcome))/sum(as.numeric(outcome))) %>% 
-    arrange(desc(predicted.probability.lm)) %>% 
-    ungroup()
+  ## generate confusion matrices for a given threshold
+  threshold <- 0.5
+  test <- test %>% mutate(prediction.lm = case_when(
+    predicted.probability.lm < threshold ~ F,
+    predicted.probability.lm >= threshold ~ T
+  ))
+
+  
+  ## generate precision plot  ***
+  lm.plot.data <- test %>% arrange(desc(predicted.probability.lm)) %>% 
+    mutate(restaurants = row_number(),
+          percent.outcome = nrow(filter(prediction.lm==T, outcome==T))/nrow(filter(test, prediction.lm==T))) %>% 
     select(restaurants, percent.outcome)
   
   rf.plot.data <- test %>% arrange(desc(predicted.probability.rf)) %>% 
-    mutate(numsres = row_number(), percent.outcome = cumsum(outcome)/sum(outcome),
-           restaurants = numsres/n()) %>% select(restaurants, percent.outcome)
+   
   
   # create and save plot
   theme_set(theme_bw())
