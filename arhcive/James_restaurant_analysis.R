@@ -3,9 +3,6 @@ require(tidyverse)
 require(lubridate)
 require(ROCR)
 require(randomForest)
-require(doParallel)
-require(foreach)
-library(snakecase)
 
 ## A
 raw_df <- read_csv("DOHMH_New_York_City_Restaurant_Inspection_Results.csv",na = c("","N/A"))
