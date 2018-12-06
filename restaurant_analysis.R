@@ -160,7 +160,7 @@ theme_set(theme_bw())
 p <- ggplot(data=plot.data, aes(x=numrank, y=percent.outcome,col = method)) 
 p <- p + geom_line()
 p <- p + xlab('Number of Highest Ranked Restaurants') + xlim(100,2000)
-p <- p + scale_y_continuous("Percent of Restaurants with Outcome", limits=c(0.15,0.225), labels=scales::percent)
+p <- p + scale_y_continuous("Percent of Restaurants with Outcome", limits=c(0.15,0.4), labels=scales::percent)
 p
 
 ##### G
