@@ -4,7 +4,7 @@ require(lubridate)
 require(ROCR)
 require(randomForest)
 
-## A
+##### A
 raw_df <- read_csv("DOHMH_New_York_City_Restaurant_Inspection_Results.csv",na = c("","N/A"))
 
 #Drop columns, make inspection data a date object, rename columns
@@ -58,7 +58,8 @@ all_data <- all_data_clean %>%
   mutate(score = max(score))
 
 
-## B
+##### B
+#filter the rows with specific years and type of inspection and create a binary outcome variable 'outcome'
 restaurant_data <- all_data %>%
   filter(inspection_year %in% c(2015,2016,2017),
          inspection_type == "Cycle Inspection / Initial Inspection") %>%
@@ -67,7 +68,8 @@ restaurant_data <- all_data %>%
   mutate(outcome = ifelse(score > 28,1,0)) %>%
   select(id,borough,cuisine,outcome,inspection_date,inspection_year)
 
-## C
+##### C
+# add month, weekday, and four given features
 restaurant_data <- restaurant_data %>%
   mutate(inspection_month = month(inspection_date),
          inspection_weekday = weekdays(inspection_date))
@@ -90,7 +92,7 @@ temp <- all_data %>%
 tb_features <-  restaurant_data %>%
   left_join(temp)
 
-## restrict to top 50 most common cuisines
+#restrict to top 50 most common cuisines
 tb_top <- tb_features %>%
   group_by(cuisine) %>%
   count(cuisine, sort=T) %>%
@@ -106,19 +108,19 @@ tb_final <- tb_features %>%
 
 
 ##### D
-## create a training set in 2015 and 2016 and a testing set in 2017
+#create a training set in 2015 and 2016 and a testing set in 2017
 train <- tb_final %>% filter(inspection_year %in% c(2015, 2016))
 test <- tb_final %>% filter(inspection_year==2017)
 
-## randomly shuffle the data
+#randomly shuffle the data
 set.seed(1000)
 train <- train[sample(nrow(train)),]
 test <- test[sample(nrow(test)),]
 
-## fit a standard logistic regression model
+#fit a standard logistic regression model
 lm_model <- glm(outcome ~ cuisine + borough + inspection_month + inspection_weekday, data=train, family="binomial")
 
-## compute AUC of this model on the test dataset
+#compute AUC of this model on the test dataset
 test$predicted.probability.lm <- predict(lm_model, newdata=test, type="response")
 test.pred.lm <- prediction(test$predicted.probability.lm, test$outcome)
 test.perf.lm <- performance(test.pred.lm, "auc")
@@ -126,13 +128,13 @@ auc <- 100*test.perf.lm@y.values[[1]]
 cat('the auc score is ', 100*test.perf.lm@y.values[[1]], "\n") 
 
 ##### E
-## fit a random forest model on train 
+#fit a random forest model on train 
 rf_model <- randomForest(outcome ~ cuisine + borough + inspection_month + inspection_weekday +
                            num_previous_low_inspections +num_previous_med_inspections +
                            num_previous_high_inspections + num_previous_previous_closings, 
                          data=train, ntree=1000)
 
-## compute AUC of this model on the test dataset  
+#compute AUC of this model on the test dataset  
 test$predicted.probability.rf <- predict(rf_model, newdata=test, type="prob")[,2]
 test.pred.rf <- prediction(test$predicted.probability.rf, test$outcome)
 test.perf.rf <- performance(test.pred.rf, "auc")
