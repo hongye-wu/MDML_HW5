@@ -1,10 +1,9 @@
-#### 2
 require(tidyverse)
 require(lubridate)
 require(ROCR)
 require(randomForest)
 
-## A
+##### A
 raw_df <- read_csv("DOHMH_New_York_City_Restaurant_Inspection_Results.csv",na = c("","N/A"))
 
 #Drop columns, make inspection data a date object, rename columns
@@ -58,7 +57,7 @@ all_data <- all_data_clean %>%
   mutate(score = max(score))
 
 
-## B
+##### B
 restaurant_data <- all_data %>%
   filter(inspection_year %in% c(2015,2016,2017),
          inspection_type == "Cycle Inspection / Initial Inspection") %>%
@@ -67,7 +66,7 @@ restaurant_data <- all_data %>%
   mutate(outcome = ifelse(score > 28,1,0)) %>%
   select(id,borough,cuisine,outcome,inspection_date,inspection_year)
 
-## C
+##### C
 restaurant_data <- restaurant_data %>%
   mutate(inspection_month = month(inspection_date),
          inspection_weekday = weekdays(inspection_date))
@@ -163,16 +162,5 @@ p <- p + xlab('Number of Highest Ranked Restaurants') + xlim(100,2000)
 p <- p + scale_y_continuous("Percent of Restaurants with Outcome", limits=c(0.15,0.4), labels=scales::percent)
 p
 
-##### G
 
-#Both the AUCs for the logistic regression and random tree method were very small (61.66 for logistic regression,
-#and 59.67 for random forest). Based on their AUCs alone, I would be wary to choose either of them as they are both
-#close to 50 meaning the models didn't perform much better than randomly guessing the outcomes. When considering the
-#performance plot, it seems like the logistic model was able to predict positive outcomes more accurately at the higher
-#ends of the predicted probabilities until around the top ~500 to ~750. In the end, there is no clear better method
-#shown by these two metrics (AUC and precision). 
-
-#One possible explanation of why we see higher precision on the highest ranked inspection on the logistic regression
-#despite the low AUCs, is because there may be a more linear relationship between the outcome variable and features that
-#we included for some restaurants. Then later on, the additional historical features become more important.
-
+## All of the written work is in the docs submitted.

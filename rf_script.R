@@ -76,11 +76,4 @@ library(foreach)
   auc <- 100*test_later.perf@y.values[[1]]
   cat('the auc score is ', 100*test_later.perf@y.values[[1]], "\n") 
   
-# AUC on test_half is higher because test_half contains data from the dataset and the same year as the training data
-# used to build the random forest model. 
-# Test_later is probably a better estimate of the model's performance on unseen data because it contains data taken 
-# from a different year from the training set, despite both coming from the same dataset.
-# Yes we should always shuffle the data and split randomly for training/test/validation sets. This helps disrupts
-# the potential patterns in data entry and ordering, and therefore offers a more realistic and unbiased model.
-
-  
+## All of the written work is in the docs submitted.
