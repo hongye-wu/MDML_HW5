@@ -140,4 +140,39 @@ auc <- 100*test.perf.rf@y.values[[1]]
 cat('the auc score is ', 100*test.perf.rf@y.values[[1]], "\n") 
 
 ##### F
+#Performance plot
+test.1 <- test %>% mutate(outcome = as.integer(outcome)-1)
+plot.data.rf <- test.1 %>% arrange(desc(predicted.probability.rf)) %>% 
+  mutate(numrank = row_number(), percent.outcome = cumsum(outcome)/numrank,
+         method = rep("Random Forest",n())) %>% 
+  select(numrank, percent.outcome,method)
+
+plot.data.lm <- test.1 %>% arrange(desc(predicted.probability.lm)) %>% 
+  mutate(numrank = row_number(), percent.outcome = cumsum(outcome)/numrank,
+         method = rep("Logistic Regression",n())) %>% 
+  select(numrank, percent.outcome,method)
+
+plot.data <- bind_rows(plot.data.rf,plot.data.lm)
+
+
+##create plot
+theme_set(theme_bw())
+p <- ggplot(data=plot.data, aes(x=numrank, y=percent.outcome,col = method)) 
+p <- p + geom_line()
+p <- p + xlab('Number of Highest Ranked Restaurants') + xlim(100,2000)
+p <- p + scale_y_continuous("Percent of Restaurants with Outcome", limits=c(0.15,0.225), labels=scales::percent)
+p
+
+##### G
+
+#Both the AUCs for the logistic regression and random tree method were very small (61.66 for logistic regression,
+#and 59.67 for random forest). Based on their AUCs alone, I would be wary to choose either of them as they are both
+#close to 50 meaning the models didn't perform much better than randomly guessing the outcomes. When considering the
+#performance plot, it seems like the logistic model was able to predict positive outcomes more accurately at the higher
+#ends of the predicted probabilities until around the top ~500 to ~750. In the end, there is no clear better method
+#shown by these two metrics (AUC and precision). 
+
+#One possible explanation of why we see higher precision on the highest ranked inspection on the logistic regression
+#despite the low AUCs, is because there may be a more linear relationship between the outcome variable and features that
+#we included for some restaurants. Then later on, the additional historical features become more important.
 
